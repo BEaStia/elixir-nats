@@ -14,6 +14,7 @@
 
 #set -xv
 
+# TODO: rewrite all this stuff to docker
 ME="`basename $0`"
 DEFAULT_GNATSD=gnatsd
 #DEFAULT_GNATSD=go run gnatsd.go

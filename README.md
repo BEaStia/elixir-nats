@@ -104,3 +104,7 @@ mix hex.publish
 [License](LICENSE)
 
 Copyright 2016 Apcera Inc. All rights reserved. 
+
+
+## TODOS:
+[] - rewrite all running gnatsd stuff to docker

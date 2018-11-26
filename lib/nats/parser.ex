@@ -41,7 +41,7 @@ defmodule Nats.Parser do
     when not char in [?\r, ?\n],
     do: err(rest, acc <> <<char>>)
   defp err(what, acc), do: done(what, [acc, :err])
-  
+
   defp json(<<>>, verb, acc), do: cont(&json(&1, verb, &2), acc)
   defp json(<<char, rest::binary>>, verb, acc)
     when not char in [?\r, ?\n],
@@ -63,7 +63,7 @@ defmodule Nats.Parser do
     when not char in [?\r, ?\n],
     do: arg(rest, acc <> <<char>>, argv)
   defp arg(rest, acc, argv), do: args(rest, [acc|argv])
- 
+
   # We're at the end of the body
   defp body(<<"\r\n", rest::binary>>, _, 0, verb, acc),
     do: simp_done(rest, put_elem(verb, tuple_size(verb) - 1, acc))
@@ -97,17 +97,14 @@ defmodule Nats.Parser do
     do: cont(&done/2, argv, 2 - byte_size(buff), buff)
 
   defp parse_json(rest, verb, json_str) do
-    case :json_lexer.string(to_char_list(json_str)) do
-      {:ok, tokens, _} ->
-        pres = :json_parser.parse(tokens)
-        case pres do
-          {:ok, json } when is_map(json) -> simp_done(rest, {verb, json})
-          {:ok, _ } ->
-            parse_err("not a json object in #{verb}: #inspect json_str}")
-          {:error, {_, what, mesg}} ->
-            parse_err("invalid json in #{verb} #{what}: #{mesg}: #{inspect json_str}")
-        end
-      other -> parse_err("unexpected json lexer result for json in #{verb}: #{inspect(other)}: #{inspect(json_str)}")
+    # Some outdated code that should be buried from the world
+    case Jason.decode(json_str) do
+      {:ok, json} when is_map(json) ->
+        simp_done(rest, {verb, json})
+      {:ok, json} ->
+        parse_err("not a json object in #{verb}: #{inspect(json)}")
+      {:error, error} ->
+        parse_err("unexpexted json in #{verb}: #{inspect(error)}: #{inspect(json_str)}")
     end
   end
 
@@ -139,7 +136,7 @@ defmodule Nats.Parser do
   defp done1(buff, {:msg, sub, sid, ret, size}) when is_binary(size),
     do: done1(buff, {:msg, sub, sid, ret, parse_int(size)})
   defp done1(buff, verb = {:msg, _sub, _sid, _ret, size})
-    when is_integer(size), 
+    when is_integer(size),
     do: body(buff, byte_size(buff), size, verb, <<>>)
   defp done1(_, {:msg, _, _, _, {:error, reason}}),
     do: parse_err("invalid arguments to #{:msg}#{reason}")
@@ -153,7 +150,7 @@ defmodule Nats.Parser do
   defp parse_int1(_orig, {result, <<>>}) when result >= 0, do: result
   defp parse_int1(orig, _), do: {:error, "invalid integer: #{orig}"}
 
- 
+
   def to_json(false) do <<"false">> end
   def to_json(true) do <<"true">> end
   def to_json(nil) do <<"null">> end
@@ -174,10 +171,10 @@ defmodule Nats.Parser do
     to_json(k) <> <<": ">> <> to_json(v)
   end
   def flat_encode(verb), do: encode(verb) |> elem(2) |> IO.iodata_to_binary
-  
+
   defp encode_done(x, len), do: {:msg, len, x}
   defp encode_done(x), do: encode_done(x, byte_size(x))
-  
+
   defp encode_body(verb, nil), do: encode_body(verb, nil, 0)
   defp encode_body(verb, body) when is_binary(body),
     do: encode_body(verb, body, byte_size(body))
